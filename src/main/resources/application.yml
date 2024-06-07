@@ -1,0 +1,30 @@
+server:
+  port: 8080  # Puerto en el que correrá la aplicación
+
+spring:
+  application:
+    name: webflux-pokeapi
+
+
+
+
+
+logging:
+  level:
+    root: INFO
+    web: info
+    sql: info
+    org.springframework.web: INFO
+    org.springframework.web.reactive: INFO
+    reactor.netty.http.client: INFO
+    org.springframework.web.reactive.function.client: INFO
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health, info
+
+
+
+
