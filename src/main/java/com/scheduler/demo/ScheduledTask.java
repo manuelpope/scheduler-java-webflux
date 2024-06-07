@@ -10,10 +10,14 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Scheduler;
 import reactor.core.scheduler.Schedulers;
 
+import java.time.Duration;
+import java.util.Objects;
+import java.util.Optional;
 import java.util.Random;
 
 @Configuration
@@ -46,43 +50,44 @@ public class ScheduledTask {
         return this.poke.getValue().toString();
     }
 
-    @Scheduled(fixedRate = 5000) // Ejecutar cada minuto (ajusta el intervalo según sea necesario)
+    @Scheduled(fixedRate = 5000 ,initialDelay = 2000) // Ejecutar cada minuto (ajusta el intervalo según sea necesario)
+    @DependsOn("firstValue")
     public void updateDollarPrice() {
         Random random = new Random();
         int id = random.nextInt(1000) + 1;
-        Mono<JsonNode> priceMono = webClient.get()
-                .uri("/pokemon/{id}", String.valueOf(id))
-                .retrieve()
-                .bodyToMono(JsonNode.class)
-                .doOnError(err -> log.error(err.getLocalizedMessage()));
+
         log.info(" new poke ::: " + id);
 
-        priceMono.subscribeOn(Schedulers.boundedElastic())
+        getPokemon(id).subscribeOn(Schedulers.boundedElastic())
                 .subscribe(price -> poke.setValue(price));
     }
 
     @Bean
-    public String firstValue() {
+    public String firstValue() throws InterruptedException {
         int flg = 0;
 
         Random random = new Random();
         int id = random.nextInt(1000) + 1;
-        Mono<JsonNode> priceMono = webClient.get()
-                .uri("/pokemon/{id}", String.valueOf(id))
-                .retrieve()
-                .bodyToMono(JsonNode.class)
-                .doOnError(err -> log.error(err.getLocalizedMessage()));
+
         log.info(" new poke ::: " + id);
 
-        priceMono.subscribeOn(Schedulers.boundedElastic())
-                .subscribe(price -> poke.setValue(price));
+        getPokemon(id)
+                .doOnNext(price -> poke.setValue(price))
+                .subscribe();
+
+
         while (flg == 0) {
+
+
+            log.info("not ready");
+            Thread.sleep(3000);
 
             if (poke.getValue() != null) {
 
                 flg += 1;
             }
-            log.info("not ready");
+
+
 
         }
 
@@ -93,5 +98,16 @@ public class ScheduledTask {
     public JsonNode randomPokesito(Poke randomPokemon) {
         log.info(randomPokemon.toString());
         return randomPokemon.getValue();
+    }
+
+    private  Mono<JsonNode> getPokemon(int id){
+
+        return webClient.get()
+                .uri("/pokemon/{id}", String.valueOf(id))
+                .retrieve()
+                .bodyToMono(JsonNode.class)
+                .doOnError(err -> log.error(err.getLocalizedMessage()))
+                .subscribeOn(Schedulers.single())
+                .publishOn(Schedulers.single());
     }
 }
